@@ -10,38 +10,57 @@ import time # Needed for timing enemy movement
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 700
 
-# Colors (RGB) - CGA Palette 1 (Black, Cyan, Magenta, White)
-CGA_BLACK = (0, 0, 0)
-CGA_CYAN = (0, 255, 255)
-CGA_MAGENTA = (255, 0, 255)
-CGA_WHITE = (255, 255, 255)
+# Colors (RGB) - VGA-like Palette
+VGA_BLACK = (0, 0, 0)
+VGA_DARK_BLUE = (0, 0, 170)         # Standard VGA Blue
+VGA_MEDIUM_BLUE = (0, 0, 100)       # Darker for sides
+VGA_LIGHT_BLUE = (85, 85, 255)      # Bright/Light Blue
 
-# Game Colors using CGA Palette
-COLOR_BACKGROUND = CGA_BLACK
-COLOR_CUBE_INITIAL = CGA_CYAN
-COLOR_CUBE_TARGET = CGA_MAGENTA # Target color for cubes
-COLOR_PLAYER = CGA_WHITE
-COLOR_TEXT = CGA_WHITE
-COLOR_OUTLINE = CGA_BLACK
+VGA_YELLOW = (255, 255, 85)
+VGA_ORANGE = (255, 165, 0)
+VGA_DARK_ORANGE = (200, 100, 0)     # Darker for sides
+VGA_BROWN = (170, 85, 0)            # For sides
 
-# Enemy Colors (Using CGA Palette)
-COLOR_COILY_BALL = CGA_MAGENTA # Ball form (Kept for potential future use)
-COLOR_COILY_SNAKE = CGA_WHITE  # Snake form
+VGA_PURPLE = (170, 0, 170)
+VGA_RED = (170, 0, 0)
+VGA_WHITE = (255, 255, 255)
+VGA_TEXT_YELLOW = (255, 255, 85) # For UI text
+
+# Game Colors using VGA Palette
+COLOR_BACKGROUND = VGA_BLACK
+COLOR_OUTLINE = VGA_BLACK # Outlines for cubes and characters
+
+# Cube color schemes (top, left_side, right_side)
+# Based on typical Q*bert level 1: Blue top, brownish/orange sides
+INITIAL_CUBE_COLORS = (VGA_LIGHT_BLUE, VGA_ORANGE, VGA_BROWN)
+# Changed state: Yellow top, bluish sides
+TARGET_CUBE_COLORS = (VGA_YELLOW, VGA_MEDIUM_BLUE, VGA_DARK_BLUE)
+
+COLOR_PLAYER_BODY = VGA_ORANGE
+COLOR_PLAYER_FEET = VGA_RED
+COLOR_PLAYER_NOSE_BG = VGA_BLACK # Nose is drawn as a hole
+
+COLOR_COILY_SNAKE = VGA_PURPLE
+COLOR_COILY_EYES = VGA_WHITE
+
 
 # Pyramid structure
 PYRAMID_ROWS = 7
 CUBES_PER_ROW = [i + 1 for i in range(PYRAMID_ROWS)]
 TOTAL_CUBES = sum(CUBES_PER_ROW)
 
-# Cube visual properties
-CUBE_WIDTH = 60
-CUBE_HEIGHT_STEP = 45
-CUBE_TOP_FACE_HEIGHT = 30
-CUBE_SIDE_FACE_HEIGHT = 30
+# Cube visual properties for drawing
+ISO_CUBE_WIDTH = 60          # Width of the top rhombus face
+ISO_CUBE_TOP_H = 30          # Height of the top rhombus face
+ISO_CUBE_SIDE_V_H = 30       # Vertical height of the side faces
+
+# Cube grid positioning properties
+GRID_COL_SPACING = ISO_CUBE_WIDTH      # Horizontal distance between cube centers in a row
+GRID_ROW_SPACING = ISO_CUBE_TOP_H * 0.75 # Vertical distance between cube centers in adjacent rows (for overlap)
 
 # Pyramid positioning
 PYRAMID_TOP_X = SCREEN_WIDTH // 2
-PYRAMID_TOP_Y = 100
+PYRAMID_TOP_Y = 100 # Y-coordinate for the center of the top-most cube's top face
 
 # Player properties
 PLAYER_WIDTH = 20
@@ -49,20 +68,18 @@ PLAYER_HEIGHT = 25
 PLAYER_FEET_HEIGHT = 5
 PLAYER_FEET_WIDTH = 6
 PLAYER_NOSE_SIZE = 4
-PLAYER_START_LIVES = 3 # Define starting lives as a constant
+PLAYER_START_LIVES = 3
 
 # Enemy properties
-COILY_BALL_RADIUS = 10 # Kept for potential future use
-COILY_SNAKE_WIDTH = 18 # Slightly smaller than player
+COILY_SNAKE_WIDTH = 18
 COILY_SNAKE_HEIGHT = 22
-COILY_MOVE_INTERVAL_BALL = 700 # Kept for potential future use
 COILY_MOVE_INTERVAL_SNAKE = 600 # Milliseconds between snake hops
 
 # Game states
 STATE_PLAYING = 1
 STATE_GAME_OVER = 2
 STATE_LEVEL_COMPLETE = 3
-STATE_PLAYER_DIED = 4 # Intermediate state after collision/fall
+STATE_PLAYER_DIED = 4
 
 # --- Sound Placeholders ---
 def play_sound(sound_name):
@@ -71,91 +88,122 @@ def play_sound(sound_name):
     # Add actual sound playing logic here if you have sound files
 
 # --- Helper Functions ---
-def get_cube_screen_pos(grid_row, grid_col):
-    """Calculates the center screen coordinates (x, y) for a cube based on its grid position."""
+def get_cube_screen_center_pos(grid_row, grid_col):
+    """Calculates the screen coordinates (x, y) for the CENTER of a cube's TOP FACE."""
     if not (0 <= grid_row < PYRAMID_ROWS and 0 <= grid_col < CUBES_PER_ROW[grid_row]):
         return None
-    screen_y = PYRAMID_TOP_Y + grid_row * CUBE_HEIGHT_STEP
-    row_center_offset = (grid_col - grid_row / 2.0) * CUBE_WIDTH
-    screen_x = PYRAMID_TOP_X + row_center_offset
+    # Horizontal position: Start at pyramid top X, adjust based on column and row
+    # Each step in grid_col shifts by GRID_COL_SPACING
+    # Each step in grid_row shifts the row's horizontal center by -GRID_COL_SPACING / 2
+    screen_x = PYRAMID_TOP_X + (grid_col - grid_row / 2.0) * GRID_COL_SPACING
+    # Vertical position: Start at pyramid top Y, adjust based on row
+    screen_y = PYRAMID_TOP_Y + grid_row * GRID_ROW_SPACING
     return int(screen_x), int(screen_y)
 
-def draw_iso_cube(surface, center_x, center_y, color):
-    """Draws a simple isometric cube representation using CGA colors."""
-    top_point = (center_x, center_y - CUBE_TOP_FACE_HEIGHT // 2)
-    left_point = (center_x - CUBE_WIDTH // 2, center_y)
-    bottom_point = (center_x, center_y + CUBE_TOP_FACE_HEIGHT // 2)
-    right_point = (center_x + CUBE_WIDTH // 2, center_y)
-    bottom_left = (left_point[0], left_point[1] + CUBE_SIDE_FACE_HEIGHT)
-    bottom_center = (bottom_point[0], bottom_point[1] + CUBE_SIDE_FACE_HEIGHT)
-    bottom_right = (right_point[0], right_point[1] + CUBE_SIDE_FACE_HEIGHT)
-    side_color_left = COLOR_OUTLINE
-    side_color_right = COLOR_OUTLINE
-    pygame.draw.polygon(surface, color, [top_point, left_point, bottom_point, right_point])
-    pygame.draw.polygon(surface, side_color_left, [left_point, bottom_point, bottom_center, bottom_left])
-    pygame.draw.polygon(surface, side_color_right, [right_point, bottom_point, bottom_center, bottom_right])
-    pygame.draw.polygon(surface, COLOR_OUTLINE, [top_point, left_point, bottom_point, right_point], 1)
-    pygame.draw.polygon(surface, COLOR_OUTLINE, [left_point, bottom_point, bottom_center, bottom_left], 1)
-    pygame.draw.polygon(surface, COLOR_OUTLINE, [right_point, bottom_point, bottom_center, bottom_right], 1)
+def draw_iso_cube_detailed(surface, center_x, center_y, width, top_h, side_v_h,
+                           color_top, color_left_side, color_right_side, color_outline):
+    """Draws an isometric cube with distinct top, left, and right faces."""
+    half_width = width // 2
+    half_top_h = top_h // 2
+
+    # Vertices of the top face (rhombus)
+    # center_x, center_y is the center of this top face
+    p_top_tip = (center_x, center_y - half_top_h)
+    p_top_left = (center_x - half_width, center_y)
+    p_top_bottom = (center_x, center_y + half_top_h)
+    p_top_right = (center_x + half_width, center_y)
+
+    # Vertices for the bottom of the side faces
+    p_side_bottom_left = (p_top_left[0], p_top_left[1] + side_v_h)
+    p_side_bottom_mid = (p_top_bottom[0], p_top_bottom[1] + side_v_h) # Front-bottom vertex
+    p_side_bottom_right = (p_top_right[0], p_top_right[1] + side_v_h)
+
+    # Draw order: draw farther faces first if overlap is an issue,
+    # but for distinct non-overlapping faces, order is less critical than cube-to-cube order.
+    # For standard Q*bert look, usually left and right sides, then top.
+
+    # Left side face polygon
+    # Points: top-left of top face, bottom-of-top-face, bottom-front-of-cube, bottom-left-of-side
+    left_face_points = [p_top_left, p_top_bottom, p_side_bottom_mid, p_side_bottom_left]
+    pygame.draw.polygon(surface, color_left_side, left_face_points)
+    pygame.draw.polygon(surface, color_outline, left_face_points, 1)
+
+    # Right side face polygon
+    # Points: top-right-of-top-face, bottom-of-top-face, bottom-front-of-cube, bottom-right-of-side
+    right_face_points = [p_top_right, p_top_bottom, p_side_bottom_mid, p_side_bottom_right]
+    pygame.draw.polygon(surface, color_right_side, right_face_points)
+    pygame.draw.polygon(surface, color_outline, right_face_points, 1)
+
+    # Top face polygon (drawn last to be on top)
+    top_face_points = [p_top_tip, p_top_left, p_top_bottom, p_top_right]
+    pygame.draw.polygon(surface, color_top, top_face_points)
+    pygame.draw.polygon(surface, color_outline, top_face_points, 1)
+
 
 # --- Classes ---
 class Cube:
     """Represents a single cube in the pyramid."""
-    def __init__(self, grid_row, grid_col, initial_color=COLOR_CUBE_INITIAL, target_color=COLOR_CUBE_TARGET):
+    def __init__(self, grid_row, grid_col,
+                 initial_colors=INITIAL_CUBE_COLORS,
+                 target_colors=TARGET_CUBE_COLORS):
         self.grid_row = grid_row
         self.grid_col = grid_col
-        self.initial_color = initial_color
-        self.target_color = target_color
-        self.current_color = initial_color
-        self.screen_pos = get_cube_screen_pos(grid_row, grid_col)
-        self.is_target_color = False
+        self.initial_colors = initial_colors # Tuple: (top, left, right)
+        self.target_colors = target_colors   # Tuple: (top, left, right)
+        self.current_colors = initial_colors
+        self.screen_center_pos = get_cube_screen_center_pos(grid_row, grid_col)
+        self.is_target_color = False # Based on the top face's color state
 
     def change_color(self):
-        """Changes the cube's color towards the target color."""
-        if self.current_color == self.initial_color:
-            self.current_color = self.target_color
+        """Changes the cube's color set to the target color set."""
+        if self.current_colors[0] == self.initial_colors[0]: # Check based on top color
+            self.current_colors = self.target_colors
             self.is_target_color = True
             play_sound("change_color")
             return True
         return False
 
     def reset_color(self):
-        """Resets the cube to its initial color."""
-        self.current_color = self.initial_color
+        """Resets the cube to its initial color set."""
+        self.current_colors = self.initial_colors
         self.is_target_color = False
 
     def draw(self, surface):
         """Draws the cube on the screen."""
-        if self.screen_pos:
-            draw_iso_cube(surface, self.screen_pos[0], self.screen_pos[1], self.current_color)
+        if self.screen_center_pos:
+            draw_iso_cube_detailed(surface,
+                                   self.screen_center_pos[0], self.screen_center_pos[1],
+                                   ISO_CUBE_WIDTH, ISO_CUBE_TOP_H, ISO_CUBE_SIDE_V_H,
+                                   self.current_colors[0], self.current_colors[1], self.current_colors[2],
+                                   COLOR_OUTLINE)
 
 class Player:
     """Represents the player character (Q*bert)."""
     def __init__(self, start_row=0, start_col=0):
-        self.start_row = start_row # Store initial position
+        self.start_row = start_row
         self.start_col = start_col
         self.grid_row = start_row
         self.grid_col = start_col
         self.update_screen_pos()
-        self.color = COLOR_PLAYER
         self.lives = PLAYER_START_LIVES
-        self.is_active = True # Flag to control player input/drawing during death animation
+        self.is_active = True
 
     def update_screen_pos(self):
         """Updates the player's screen position based on grid position."""
-        pos = get_cube_screen_pos(self.grid_row, self.grid_col)
+        pos = get_cube_screen_center_pos(self.grid_row, self.grid_col)
         if pos:
+            # Player's center Y should be slightly above the center of the cube's top face
             self.screen_x = pos[0]
-            self.screen_y = pos[1] - CUBE_TOP_FACE_HEIGHT // 2 - PLAYER_HEIGHT // 2
+            self.screen_y = pos[1] - PLAYER_HEIGHT // 2 # Center player on top face center
+            return True
         else:
-             self.screen_x = -100 # Off screen
-             self.screen_y = -100
-             return False
-        return True
+            self.screen_x = -100 # Off screen
+            self.screen_y = -100
+            return False
 
     def move(self, dr, dc):
         """Attempts to move the player by delta row (dr) and delta column (dc)."""
-        if not self.is_active: return False # Don't move if inactive
+        if not self.is_active: return False
 
         play_sound("jump")
         new_row = self.grid_row + dr
@@ -164,247 +212,261 @@ class Player:
         if 0 <= new_row < PYRAMID_ROWS and 0 <= new_col < CUBES_PER_ROW[new_row]:
             self.grid_row = new_row
             self.grid_col = new_col
-            if not self.update_screen_pos():
-                play_sound("fall")
-                return False # Fell off (should be handled by caller)
+            if not self.update_screen_pos(): # Should not fail if grid pos is valid
+                play_sound("fall") # Should be rare here
+                return False
             play_sound("land")
             return True
         else:
-            # Player attempted move off edge - this is a fall
             self.grid_row = new_row # Update position to visually fall off
             self.grid_col = new_col
-            self.update_screen_pos()
+            self.update_screen_pos() # Will set screen_x/y to off-screen
             play_sound("fall")
             return False # Failed move (fell)
 
     def reset_position(self):
-        """Resets player to the starting cube."""
         self.grid_row = self.start_row
         self.grid_col = self.start_col
         self.update_screen_pos()
         self.is_active = True
 
     def reset_lives(self):
-        """ Resets player lives to the starting amount. """
         self.lives = PLAYER_START_LIVES
 
     def die(self):
-        """Handles player death."""
         self.lives -= 1
-        self.is_active = False # Disable input during death pause
-        play_sound("player_die") # Specific sound for player death
+        self.is_active = False
+        play_sound("player_die")
         print(f"Player died! Lives left: {self.lives}")
 
     def draw(self, surface):
-        """Draws the player as a simple blocky shape."""
-        if self.screen_x > 0 and self.is_active: # Only draw if on screen and active
-            body_rect = pygame.Rect(self.screen_x - PLAYER_WIDTH // 2, self.screen_y - PLAYER_HEIGHT // 2, PLAYER_WIDTH, PLAYER_HEIGHT)
-            pygame.draw.rect(surface, self.color, body_rect)
+        if self.screen_x > 0 and self.is_active:
+            # Simple blocky player
+            body_rect = pygame.Rect(
+                self.screen_x - PLAYER_WIDTH // 2,
+                self.screen_y - PLAYER_HEIGHT // 2,
+                PLAYER_WIDTH, PLAYER_HEIGHT
+            )
+            pygame.draw.rect(surface, COLOR_PLAYER_BODY, body_rect)
+
+            # Feet
             foot_y = body_rect.bottom
             foot_left_x = body_rect.centerx - PLAYER_FEET_WIDTH * 1.5
             foot_right_x = body_rect.centerx + PLAYER_FEET_WIDTH * 0.5
             foot_left_rect = pygame.Rect(foot_left_x, foot_y, PLAYER_FEET_WIDTH, PLAYER_FEET_HEIGHT)
             foot_right_rect = pygame.Rect(foot_right_x, foot_y, PLAYER_FEET_WIDTH, PLAYER_FEET_HEIGHT)
-            pygame.draw.rect(surface, self.color, foot_left_rect)
-            pygame.draw.rect(surface, self.color, foot_right_rect)
+            pygame.draw.rect(surface, COLOR_PLAYER_FEET, foot_left_rect)
+            pygame.draw.rect(surface, COLOR_PLAYER_FEET, foot_right_rect)
+
+            # Nose (simple black square for now)
             nose_x = body_rect.centerx - PLAYER_NOSE_SIZE // 2
-            nose_y = body_rect.centery + PLAYER_HEIGHT // 4
+            nose_y = body_rect.centery # Adjusted for better placement
             nose_rect = pygame.Rect(nose_x, nose_y, PLAYER_NOSE_SIZE, PLAYER_NOSE_SIZE)
-            pygame.draw.rect(surface, COLOR_BACKGROUND, nose_rect)
+            pygame.draw.rect(surface, COLOR_PLAYER_NOSE_BG, nose_rect)
+
+            # Outlines
             pygame.draw.rect(surface, COLOR_OUTLINE, body_rect, 1)
             pygame.draw.rect(surface, COLOR_OUTLINE, foot_left_rect, 1)
             pygame.draw.rect(surface, COLOR_OUTLINE, foot_right_rect, 1)
 
+
     def get_current_cube_index(self):
-         """Calculates the flat index of the cube the player is on."""
-         if not self.is_active: return -1 # Don't interact if dead
-         index = 0
-         for r in range(self.grid_row):
-             index += CUBES_PER_ROW[r]
-         index += self.grid_col
-         if not (0 <= self.grid_row < PYRAMID_ROWS and 0 <= self.grid_col < CUBES_PER_ROW[self.grid_row]):
-             return -1
-         return index
+        if not self.is_active: return -1
+        if not (0 <= self.grid_row < PYRAMID_ROWS and 0 <= self.grid_col < CUBES_PER_ROW[self.grid_row]):
+            return -1 # Player is off the valid grid
+        index = 0
+        for r in range(self.grid_row):
+            index += CUBES_PER_ROW[r]
+        index += self.grid_col
+        return index
 
 class Enemy:
     """Represents the Coily enemy."""
     def __init__(self):
         self.reset()
-        self.last_move_time = pygame.time.get_ticks() # For timing movement
+        self.last_move_time = pygame.time.get_ticks()
 
     def reset(self):
-        """Resets Coily to the starting state (snake at bottom)."""
-        self.grid_row = PYRAMID_ROWS - 1 # Start at the bottom row
+        self.grid_row = PYRAMID_ROWS - 1
         self.grid_col = random.randint(0, CUBES_PER_ROW[self.grid_row] - 1)
-        self.is_snake = True # Start as a snake immediately
-        self.is_active = True # Make active
+        self.is_snake = True # Always starts as snake
+        self.is_active = True
         self.update_screen_pos()
-        self.last_move_time = pygame.time.get_ticks() # Reset move timer
+        self.last_move_time = pygame.time.get_ticks()
         print(f"Coily reset as snake at ({self.grid_row}, {self.grid_col})")
 
     def update_screen_pos(self):
-        """Updates the enemy's screen position based on grid position."""
-        pos = get_cube_screen_pos(self.grid_row, self.grid_col)
+        pos = get_cube_screen_center_pos(self.grid_row, self.grid_col)
         if pos:
-            if self.is_snake:
-                self.screen_x = pos[0]
-                self.screen_y = pos[1] - CUBE_TOP_FACE_HEIGHT // 2 - COILY_SNAKE_HEIGHT // 2
-            else: # Ball logic
-                self.screen_x = pos[0]
-                self.screen_y = pos[1] - CUBE_TOP_FACE_HEIGHT // 2 - COILY_BALL_RADIUS // 2
+            self.screen_x = pos[0]
+            self.screen_y = pos[1] - COILY_SNAKE_HEIGHT // 2 # Center snake on top face center
+            return True
         else:
-             # Enemy fell off or invalid position
-             if self.is_active:
-                 print(f"Coily position invalid ({self.grid_row}, {self.grid_col}) - Deactivating")
-             self.is_active = False
-             self.screen_x = -100
-             self.screen_y = -100
-             return False
-        return True
+            if self.is_active:
+                print(f"Coily position invalid ({self.grid_row}, {self.grid_col}) - Deactivating")
+            self.is_active = False
+            self.screen_x = -100
+            self.screen_y = -100
+            return False
 
     def move(self, player_pos):
-        """Moves Coily (always as snake now) based on player position."""
         if not self.is_active: return
 
         current_time = pygame.time.get_ticks()
-        move_interval = COILY_MOVE_INTERVAL_SNAKE
-
-        if current_time - self.last_move_time > move_interval:
+        if current_time - self.last_move_time > COILY_MOVE_INTERVAL_SNAKE:
             self.last_move_time = current_time
+            play_sound("enemy_hop")
 
-            dr, dc = 0, 0 # Delta row, delta column
+            dr, dc = 0, 0
             player_row, player_col = player_pos
-            play_sound("enemy_hop") # Snake hops
 
-            # --- Determine Vertical Direction ---
-            if player_row > self.grid_row: dr = 1
-            elif player_row < self.grid_row: dr = -1
-            else: dr = 0
+            # Simplified Coily AI: Try to move towards player's current level or below.
+            # Prioritize getting on the same row or moving down towards the player.
+            # If player is above, Coily might try to move towards one of the two spots on the row below.
+            # If player is below, Coily will try to move towards one of the two spots on the row below.
+            # This is a common Q*bert AI pattern for Coily.
 
-            # --- Determine Horizontal Direction (dc) based on dr ---
-            if dr > 0: # Moving Down
-                new_row = self.grid_row + 1
-                c1 = self.grid_col; c2 = self.grid_col + 1
-                valid_c1 = 0 <= c1 < CUBES_PER_ROW[new_row]
-                valid_c2 = 0 <= c2 < CUBES_PER_ROW[new_row]
-                if valid_c1 and valid_c2:
-                    proj_p_col = player_col - (player_row - new_row)
-                    dist1 = abs(proj_p_col - c1); dist2 = abs(proj_p_col - c2)
-                    if dist1 < dist2: dc = 0
-                    elif dist2 < dist1: dc = 1
-                    else: dc = random.choice([0, 1])
-                elif valid_c1: dc = 0
-                elif valid_c2: dc = 1
-                else: dr, dc = 0, 0
-            elif dr < 0: # Moving Up
-                new_row = self.grid_row - 1
-                c1 = self.grid_col - 1; c2 = self.grid_col
-                valid_c1 = 0 <= new_row < PYRAMID_ROWS and 0 <= c1 < CUBES_PER_ROW[new_row] # Check row validity too
-                valid_c2 = 0 <= new_row < PYRAMID_ROWS and 0 <= c2 < CUBES_PER_ROW[new_row] # Check row validity too
-                if valid_c1 and valid_c2:
-                    proj_p_col = player_col - (player_row - new_row)
-                    dist1 = abs(proj_p_col - c1); dist2 = abs(proj_p_col - c2)
-                    if dist1 < dist2: dc = -1
-                    elif dist2 < dist1: dc = 0
-                    else: dc = random.choice([-1, 0])
-                elif valid_c1: dc = -1
-                elif valid_c2: dc = 0
-                else: dr, dc = 0, 0
-            else: # dr == 0 (Same Row)
-                if player_col > self.grid_col: # Player is right
-                    if abs((player_row - (self.grid_row + 1))) <= abs((player_row - (self.grid_row - 1))): dr, dc = 1, 1
-                    else: dr, dc = -1, 0
-                elif player_col < self.grid_col: # Player is left
-                    if abs((player_row - (self.grid_row + 1))) <= abs((player_row - (self.grid_row - 1))): dr, dc = 1, 0
-                    else: dr, dc = -1, -1
-                else: dr, dc = 0, 0 # Same cube
+            possible_moves = []
+            # Potential moves down-left and down-right from current position
+            # (relative to Coily's current grid position)
+            # For Coily, moving "down" the pyramid means increasing row index
+            if self.grid_row + 1 < PYRAMID_ROWS:
+                # Down-left from Coily's perspective on the grid
+                if self.grid_col < CUBES_PER_ROW[self.grid_row + 1]:
+                    possible_moves.append((1, 0)) # dr=1 (down), dc=0 (left relative to next row start)
+                # Down-right from Coily's perspective on the grid
+                if self.grid_col + 1 < CUBES_PER_ROW[self.grid_row + 1]:
+                     possible_moves.append((1, 1)) # dr=1 (down), dc=1 (right relative to next row start)
 
-            # --- Execute Move ---
+            # Potential moves up-left and up-right
+            # For Coily, moving "up" the pyramid means decreasing row index
+            if self.grid_row - 1 >= 0:
+                # Up-left
+                if self.grid_col -1 >= 0 and self.grid_col -1 < CUBES_PER_ROW[self.grid_row -1]:
+                     possible_moves.append((-1, -1)) # dr=-1 (up), dc=-1 (left relative to current col)
+                # Up-right
+                if self.grid_col >=0 and self.grid_col < CUBES_PER_ROW[self.grid_row-1]:
+                     possible_moves.append((-1, 0)) # dr=-1 (up), dc=0 (right relative to current col)
+
+
+            if not possible_moves: # No valid moves (e.g., stuck at top)
+                if self.is_active: print(f"Coily has no valid moves from ({self.grid_row}, {self.grid_col})")
+                # self.is_active = False # Or Coily just stays put
+                return
+
+
+            # Choose the best move towards the player
+            best_move = None
+            min_dist_sq = float('inf')
+
+            for move_dr, move_dc in possible_moves:
+                next_row, next_col = self.grid_row + move_dr, self.grid_col + move_dc
+                # Ensure the calculated next_col is valid for next_row
+                if not (0 <= next_row < PYRAMID_ROWS and 0 <= next_col < CUBES_PER_ROW[next_row]):
+                    continue
+
+                dist_sq = (next_row - player_row)**2 + (next_col - player_col)**2
+                if dist_sq < min_dist_sq:
+                    min_dist_sq = dist_sq
+                    best_move = (move_dr, move_dc)
+                elif dist_sq == min_dist_sq: # If distances are equal, randomly pick one
+                    if random.choice([True, False]):
+                        best_move = (move_dr, move_dc)
+            
+            if best_move:
+                dr, dc = best_move
+            elif possible_moves: # If no best move towards player, pick a random valid one
+                dr, dc = random.choice(possible_moves)
+            else: # Should not happen if initial possible_moves check is done
+                return
+
+
             final_new_row = self.grid_row + dr
             final_new_col = self.grid_col + dc
 
+            # Final check, though the loop should ensure this
             if 0 <= final_new_row < PYRAMID_ROWS and 0 <= final_new_col < CUBES_PER_ROW[final_new_row]:
                 self.grid_row = final_new_row
                 self.grid_col = final_new_col
                 self.update_screen_pos()
             else:
                 if self.is_active:
-                    print(f"Coily attempted invalid move from ({self.grid_row},{self.grid_col}) to ({final_new_row},{final_new_col}). Deactivating.")
-                self.is_active = False
+                    print(f"Coily attempted invalid final move from ({self.grid_row-dr},{self.grid_col-dc}) to ({final_new_row},{final_new_col}). Deactivating.")
+                self.is_active = False # Fell off
                 self.screen_x = -100
 
+
     def draw(self, surface):
-        """Draws Coily (should always be snake in this version)."""
         if self.screen_x > 0 and self.is_active:
-            if self.is_snake:
-                body_rect = pygame.Rect(self.screen_x - COILY_SNAKE_WIDTH // 2, self.screen_y - COILY_SNAKE_HEIGHT // 2, COILY_SNAKE_WIDTH, COILY_SNAKE_HEIGHT)
-                pygame.draw.rect(surface, COLOR_COILY_SNAKE, body_rect)
-                pygame.draw.rect(surface, COLOR_OUTLINE, body_rect, 1)
-                eye_size = 2
-                eye_y = body_rect.centery - COILY_SNAKE_HEIGHT // 4
-                eye_left_x = body_rect.centerx - COILY_SNAKE_WIDTH // 4
-                eye_right_x = body_rect.centerx + COILY_SNAKE_WIDTH // 4
-                pygame.draw.rect(surface, COLOR_BACKGROUND, (eye_left_x - eye_size//2, eye_y - eye_size//2, eye_size, eye_size))
-                pygame.draw.rect(surface, COLOR_BACKGROUND, (eye_right_x - eye_size//2, eye_y - eye_size//2, eye_size, eye_size))
+            body_rect = pygame.Rect(
+                self.screen_x - COILY_SNAKE_WIDTH // 2,
+                self.screen_y - COILY_SNAKE_HEIGHT // 2,
+                COILY_SNAKE_WIDTH, COILY_SNAKE_HEIGHT
+            )
+            pygame.draw.rect(surface, COLOR_COILY_SNAKE, body_rect)
+            pygame.draw.rect(surface, COLOR_OUTLINE, body_rect, 1)
+
+            # Eyes
+            eye_size = 3
+            eye_y_offset = COILY_SNAKE_HEIGHT // 4
+            eye_x_offset = COILY_SNAKE_WIDTH // 4
+            pygame.draw.circle(surface, COLOR_COILY_EYES, (body_rect.centerx - eye_x_offset, body_rect.centery - eye_y_offset), eye_size // 2)
+            pygame.draw.circle(surface, COLOR_COILY_EYES, (body_rect.centerx + eye_x_offset, body_rect.centery - eye_y_offset), eye_size // 2)
+
 
 # --- Game Reset Function ---
 def reset_game():
-    """Resets the game state for a new game."""
-    global score, game_state, player, coily, pyramid_cubes
+    global score, game_state, player, coily, pyramid_cubes, player_death_timer
     print("Resetting game...")
     score = 0
     player.reset_lives()
     player.reset_position()
-    coily.reset()
+    coily.reset() # Coily will now also reset its position and become active
 
-    # Reset all cubes to initial color
     for cube in pyramid_cubes:
         cube.reset_color()
 
-    # Recolor the starting cube for the player
     start_cube_index = player.get_current_cube_index()
     if 0 <= start_cube_index < len(pyramid_cubes):
-        pyramid_cubes[start_cube_index].change_color() # Initial color change doesn't score
+        pyramid_cubes[start_cube_index].change_color() # Initial landing
 
     game_state = STATE_PLAYING
+    player_death_timer = 0 # Reset death timer
 
 
 # --- Game Setup ---
 pygame.init()
-pygame.mixer.init()
+# pygame.mixer.init() # If you add sounds later
 pygame.font.init()
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Q*bert Clone - Restart/Exit Added") # Updated caption
+pygame.display.set_caption("Q*bert VGA Style")
 clock = pygame.time.Clock()
 
-# Load Fonts
 try:
-    game_font = pygame.font.SysFont('Consolas', 30)
-    small_font = pygame.font.SysFont('Consolas', 20) # Smaller font for prompts
+    game_font = pygame.font.SysFont('Consolas', 30) # Or "Arial"
+    small_font = pygame.font.SysFont('Consolas', 20)
 except pygame.error:
     game_font = pygame.font.Font(None, 35) # Fallback
-    small_font = pygame.font.Font(None, 25) # Fallback
+    small_font = pygame.font.Font(None, 25)
 
-# --- Game Objects ---
 pyramid_cubes = []
 for r in range(PYRAMID_ROWS):
     for c in range(CUBES_PER_ROW[r]):
         pyramid_cubes.append(Cube(r, c))
 
-player = Player(0, 0)
+player = Player(0, 0) # Start player at the top cube (0,0)
 coily = Enemy()
 
-# Initial game state setup
 score = 0
 game_state = STATE_PLAYING
 player_death_timer = 0
-PLAYER_DEATH_PAUSE = 1500
+PLAYER_DEATH_PAUSE = 1500 # Milliseconds for player death pause
 
-# Initial player landing color change
-start_cube_index = player.get_current_cube_index()
-if 0 <= start_cube_index < len(pyramid_cubes):
-    pyramid_cubes[start_cube_index].change_color()
+# Initial landing on the first cube
+start_cube_idx = player.get_current_cube_index()
+if 0 <= start_cube_idx < len(pyramid_cubes):
+    pyramid_cubes[start_cube_idx].change_color() # No score for initial landing
 
 running = True
 
@@ -412,55 +474,62 @@ running = True
 while running:
     current_time_ticks = pygame.time.get_ticks()
 
-    # --- Event Handling ---
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False # Allow closing window
+            running = False
         if event.type == pygame.KEYDOWN:
-            # --- Global Key Checks (Exit) ---
             if event.key == pygame.K_ESCAPE:
-                running = False # Exit game immediately
-
-            # --- Game Over State Key Checks (Restart) ---
-            elif game_state == STATE_GAME_OVER:
+                running = False
+            
+            if game_state == STATE_GAME_OVER:
                 if event.key == pygame.K_r:
-                    reset_game() # Call the reset function
-
-            # --- Playing State Key Checks (Movement) ---
+                    reset_game()
+            
             elif game_state == STATE_PLAYING and player.is_active:
-                moved = False
-                fell = False
+                moved_successfully = False # True if player lands on a valid cube
+                fell_off_pyramid = False
 
-                if event.key == pygame.K_q: moved = player.move(-1, -1) # Up-Left
-                elif event.key == pygame.K_w: moved = player.move(-1, 0)  # Up-Right
-                elif event.key == pygame.K_a: moved = player.move(1, 0)   # Down-Left
-                elif event.key == pygame.K_s: moved = player.move(1, 1)   # Down-Right
+                if event.key == pygame.K_q: # Up-Left
+                    moved_successfully = player.move(-1, -1)
+                elif event.key == pygame.K_w: # Up-Right
+                    moved_successfully = player.move(-1, 0)
+                elif event.key == pygame.K_a: # Down-Left
+                    moved_successfully = player.move(1, 0)
+                elif event.key == pygame.K_s: # Down-Right
+                    moved_successfully = player.move(1, 1)
 
-                if player.screen_x < 0: fell = True
+                # Check if player fell after attempting a move
+                # player.move returns False if the target grid coordinates are off-pyramid
+                if not moved_successfully and player.screen_x < 0 : # Check if off-screen (fell)
+                    fell_off_pyramid = True
 
-                if fell:
+                if fell_off_pyramid:
                     player.die()
                     game_state = STATE_PLAYER_DIED
                     player_death_timer = current_time_ticks
-                elif moved:
+                elif moved_successfully : # Player landed on a cube
                     current_cube_index = player.get_current_cube_index()
                     if 0 <= current_cube_index < len(pyramid_cubes):
                         landed_cube = pyramid_cubes[current_cube_index]
-                        if landed_cube.change_color():
+                        if landed_cube.change_color(): # True if color actually changed
                             score += 25
-                            all_cubes_target = all(c.is_target_color for c in pyramid_cubes)
-                            if all_cubes_target:
-                                game_state = STATE_LEVEL_COMPLETE
-                                score += 1000
-                                play_sound("level_complete")
-                                coily.is_active = False
+                        
+                        # Check for level complete
+                        all_cubes_target = all(c.is_target_color for c in pyramid_cubes)
+                        if all_cubes_target:
+                            game_state = STATE_LEVEL_COMPLETE
+                            score += 1000 # Bonus for level complete
+                            play_sound("level_complete")
+                            coily.is_active = False # Coily might disappear or stop
                     else:
-                        print(f"Error: Moved successfully but landed on invalid index: {current_cube_index}")
+                        # This case should ideally be covered by fell_off_pyramid
+                        # but as a safeguard if player.move returned true but index is bad
+                        print(f"Error: Player landed on invalid cube index: {current_cube_index} after move.")
                         player.die()
                         game_state = STATE_PLAYER_DIED
                         player_death_timer = current_time_ticks
 
-    # --- Game Logic Update ---
+
     if game_state == STATE_PLAYER_DIED:
         if current_time_ticks - player_death_timer > PLAYER_DEATH_PAUSE:
             if player.lives <= 0:
@@ -468,11 +537,13 @@ while running:
                 play_sound("game_over")
             else:
                 player.reset_position()
-                coily.reset()
-                start_cube_index = player.get_current_cube_index()
-                if 0 <= start_cube_index < len(pyramid_cubes):
-                    if not pyramid_cubes[start_cube_index].is_target_color:
-                        pyramid_cubes[start_cube_index].change_color()
+                coily.reset() # Reset Coily when player respawns
+                # Recolor starting cube if it's not already target color
+                start_cube_idx_respawn = player.get_current_cube_index()
+                if 0 <= start_cube_idx_respawn < len(pyramid_cubes):
+                    if not pyramid_cubes[start_cube_idx_respawn].is_target_color:
+                         pyramid_cubes[start_cube_idx_respawn].change_color() # No score for respawn landing
+
                 game_state = STATE_PLAYING
 
     if game_state == STATE_PLAYING:
@@ -486,39 +557,36 @@ while running:
                 game_state = STATE_PLAYER_DIED
                 player_death_timer = current_time_ticks
 
-    # --- Drawing ---
     screen.fill(COLOR_BACKGROUND)
-    for cube in pyramid_cubes: cube.draw(screen)
-    coily.draw(screen)
-    player.draw(screen)
+    for cube in pyramid_cubes:
+        cube.draw(screen)
+    
+    if coily.is_active : coily.draw(screen) # Only draw Coily if active
+    if player.is_active : player.draw(screen) # Only draw player if active (not during death pause)
 
-    score_text = game_font.render(f"Score: {score}", True, COLOR_TEXT)
-    lives_text = game_font.render(f"Lives: {player.lives}", True, COLOR_TEXT)
+
+    score_text = game_font.render(f"Score: {score}", True, VGA_TEXT_YELLOW)
+    lives_text = game_font.render(f"Lives: {player.lives}", True, VGA_TEXT_YELLOW)
     screen.blit(score_text, (10, 10))
     screen.blit(lives_text, (SCREEN_WIDTH - lives_text.get_width() - 10, 10))
 
-    # --- Draw Game State Messages ---
     if game_state == STATE_GAME_OVER:
-        # Game Over Text
-        go_text = game_font.render("GAME OVER", True, COLOR_PLAYER)
-        go_rect = go_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20)) # Move up slightly
+        go_text = game_font.render("GAME OVER", True, VGA_RED)
+        go_rect = go_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))
         screen.blit(go_text, go_rect)
-        # Restart/Exit Prompt Text
-        prompt_text = small_font.render("Press 'R' to Restart or 'ESC' to Exit", True, COLOR_TEXT)
-        prompt_rect = prompt_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20)) # Position below GAME OVER
+        prompt_text = small_font.render("Press 'R' to Restart or 'ESC' to Exit", True, VGA_TEXT_YELLOW)
+        prompt_rect = prompt_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
         screen.blit(prompt_text, prompt_rect)
 
     elif game_state == STATE_LEVEL_COMPLETE:
-        lc_text = game_font.render("LEVEL COMPLETE!", True, COLOR_CUBE_TARGET)
+        lc_text = game_font.render("LEVEL COMPLETE!", True, VGA_YELLOW) # Use target color
         lc_rect = lc_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
         screen.blit(lc_text, lc_rect)
-        # Add logic here later to proceed to the next level after a pause
+        # Add logic here to pause and then reset for a new level or end game.
+        # For now, it will just display this message. A key press could trigger reset_game() for a "new level".
 
     pygame.display.flip()
     clock.tick(30)
 
-# --- Cleanup ---
 pygame.quit()
 sys.exit()
-
-
