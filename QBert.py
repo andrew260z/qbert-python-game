@@ -45,14 +45,14 @@ COLOR_COILY_EYES = VGA_WHITE
 
 
 # Pyramid structure
-PYRAMID_ROWS = 9
+PYRAMID_ROWS = 7
 CUBES_PER_ROW = [i + 1 for i in range(PYRAMID_ROWS)]
 TOTAL_CUBES = sum(CUBES_PER_ROW)
 
 # Cube visual properties for drawing
-ISO_CUBE_WIDTH = 60          # Width of the top rhombus face
-ISO_CUBE_TOP_H = 30          # Height of the top rhombus face
-ISO_CUBE_SIDE_V_H = 30       # Vertical height of the side faces
+ISO_CUBE_WIDTH = 80          # Width of the top rhombus face
+ISO_CUBE_TOP_H = 50          # Height of the top rhombus face
+ISO_CUBE_SIDE_V_H = 50       # Vertical height of the side faces
 
 # Cube grid positioning properties
 GRID_COL_SPACING = ISO_CUBE_WIDTH      # Horizontal distance between cube centers in a row
@@ -74,8 +74,8 @@ PLAYER_START_LIVES = 3
 COILY_SNAKE_WIDTH = 18
 COILY_SNAKE_HEIGHT = 22
 # COILY_MOVE_INTERVAL_SNAKE = 600 # Milliseconds between snake hops (REMOVED/COMMENTED)
-COILY_INTERVAL_LEVEL_1 = 1000  # Milliseconds for Coily's speed at level 1
-COILY_INTERVAL_LEVEL_10 = 300   # Milliseconds for Coily's speed at level 10 (max speed)
+COILY_INTERVAL_LEVEL_1 = 1500  # Milliseconds for Coily's speed at level 1
+COILY_INTERVAL_LEVEL_10 = 500   # Milliseconds for Coily's speed at level 10 (max speed)
 MAX_LEVEL_FOR_SPEED_SCALING = 10
 
 # Game states
