@@ -45,7 +45,7 @@ COLOR_COILY_EYES = VGA_WHITE
 
 
 # Pyramid structure
-PYRAMID_ROWS = 7
+PYRAMID_ROWS = 9
 CUBES_PER_ROW = [i + 1 for i in range(PYRAMID_ROWS)]
 TOTAL_CUBES = sum(CUBES_PER_ROW)
 
@@ -73,7 +73,10 @@ PLAYER_START_LIVES = 3
 # Enemy properties
 COILY_SNAKE_WIDTH = 18
 COILY_SNAKE_HEIGHT = 22
-COILY_MOVE_INTERVAL_SNAKE = 600 # Milliseconds between snake hops
+# COILY_MOVE_INTERVAL_SNAKE = 600 # Milliseconds between snake hops (REMOVED/COMMENTED)
+COILY_INTERVAL_LEVEL_1 = 1000  # Milliseconds for Coily's speed at level 1
+COILY_INTERVAL_LEVEL_10 = 300   # Milliseconds for Coily's speed at level 10 (max speed)
+MAX_LEVEL_FOR_SPEED_SCALING = 10
 
 # Game states
 STATE_PLAYING = 1
@@ -310,10 +313,27 @@ class Enemy:
             return False
 
     def move(self, player_pos):
+        global current_level # Make sure we're using the global variable
+
         if not self.is_active: return
 
         current_time = pygame.time.get_ticks()
-        if current_time - self.last_move_time > COILY_MOVE_INTERVAL_SNAKE:
+
+        # Dynamically calculate Coily's move interval based on current_level
+        level_for_calc = min(current_level, MAX_LEVEL_FOR_SPEED_SCALING)
+
+        if level_for_calc <= 1:
+            current_coily_interval = COILY_INTERVAL_LEVEL_1
+        elif level_for_calc >= MAX_LEVEL_FOR_SPEED_SCALING:
+            current_coily_interval = COILY_INTERVAL_LEVEL_10
+        else:
+            scale_factor = (level_for_calc - 1) / (MAX_LEVEL_FOR_SPEED_SCALING - 1)
+            current_coily_interval = COILY_INTERVAL_LEVEL_1 - (COILY_INTERVAL_LEVEL_1 - COILY_INTERVAL_LEVEL_10) * scale_factor
+        
+        current_coily_interval = int(current_coily_interval)
+
+
+        if current_time - self.last_move_time > current_coily_interval:
             self.last_move_time = current_time
             play_sound("enemy_hop")
 
@@ -416,9 +436,10 @@ class Enemy:
 
 # --- Game Reset Function ---
 def reset_game():
-    global score, game_state, player, coily, pyramid_cubes, player_death_timer
+    global score, game_state, player, coily, pyramid_cubes, player_death_timer, current_level
     print("Resetting game...")
     score = 0
+    current_level = 1 # Reset level to 1
     player.reset_lives()
     player.reset_position()
     coily.reset() # Coily will now also reset its position and become active
@@ -432,6 +453,34 @@ def reset_game():
 
     game_state = STATE_PLAYING
     player_death_timer = 0 # Reset death timer
+
+
+def start_next_level():
+    global game_state, player, coily, pyramid_cubes, player_death_timer, current_level # Ensure current_level is global if used for print
+    print(f"Starting next level: {current_level}")
+
+    # Reset player to starting position for the new level
+    player.reset_position()
+    # Make sure player is active for the new level
+    player.is_active = True 
+
+    # Reset Coily for the new level (he should become active and reposition)
+    coily.reset()
+    coily.is_active = True
+
+
+    # Reset all cubes to their initial colors
+    for cube in pyramid_cubes:
+        cube.reset_color()
+
+    # Player lands on the first cube of the new level
+    start_cube_index = player.get_current_cube_index()
+    if 0 <= start_cube_index < len(pyramid_cubes):
+        pyramid_cubes[start_cube_index].change_color() # No score for this initial landing
+
+    # Set game state to playing
+    game_state = STATE_PLAYING
+    player_death_timer = 0 # Reset any death timer
 
 
 # --- Game Setup ---
@@ -459,6 +508,7 @@ player = Player(0, 0) # Start player at the top cube (0,0)
 coily = Enemy()
 
 score = 0
+current_level = 1  # Initialize current level
 game_state = STATE_PLAYING
 player_death_timer = 0
 PLAYER_DEATH_PAUSE = 1500 # Milliseconds for player death pause
@@ -484,18 +534,21 @@ while running:
             if game_state == STATE_GAME_OVER:
                 if event.key == pygame.K_r:
                     reset_game()
+            elif game_state == STATE_LEVEL_COMPLETE:
+                if event.key == pygame.K_n:
+                    start_next_level()
             
             elif game_state == STATE_PLAYING and player.is_active:
                 moved_successfully = False # True if player lands on a valid cube
                 fell_off_pyramid = False
 
-                if event.key == pygame.K_q: # Up-Left
+                if event.key == pygame.K_LEFT:  # Up-Left
                     moved_successfully = player.move(-1, -1)
-                elif event.key == pygame.K_w: # Up-Right
+                elif event.key == pygame.K_UP: # Up-Right
                     moved_successfully = player.move(-1, 0)
-                elif event.key == pygame.K_a: # Down-Left
+                elif event.key == pygame.K_DOWN: # Down-Left
                     moved_successfully = player.move(1, 0)
-                elif event.key == pygame.K_s: # Down-Right
+                elif event.key == pygame.K_RIGHT: # Down-Right
                     moved_successfully = player.move(1, 1)
 
                 # Check if player fell after attempting a move
@@ -518,9 +571,15 @@ while running:
                         all_cubes_target = all(c.is_target_color for c in pyramid_cubes)
                         if all_cubes_target:
                             game_state = STATE_LEVEL_COMPLETE
+                            current_level += 1 # Increment level
                             score += 1000 # Bonus for level complete
                             play_sound("level_complete")
+                            print(f"Level Complete! Advancing to level {current_level}")
                             coily.is_active = False # Coily might disappear or stop
+                            # Consider adding a short delay or a "next level" screen here
+                            # For now, it will just make Coily inactive and player can't move.
+                            # A key press (e.g., in STATE_LEVEL_COMPLETE handler) could then call a function
+                            # to reset cubes, player position, and reactivate Coily for the new level.
                     else:
                         # This case should ideally be covered by fell_off_pyramid
                         # but as a safeguard if player.move returned true but index is bad
@@ -579,11 +638,13 @@ while running:
         screen.blit(prompt_text, prompt_rect)
 
     elif game_state == STATE_LEVEL_COMPLETE:
-        lc_text = game_font.render("LEVEL COMPLETE!", True, VGA_YELLOW) # Use target color
-        lc_rect = lc_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        lc_text = game_font.render("LEVEL COMPLETE!", True, VGA_YELLOW)
+        lc_rect = lc_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))
         screen.blit(lc_text, lc_rect)
-        # Add logic here to pause and then reset for a new level or end game.
-        # For now, it will just display this message. A key press could trigger reset_game() for a "new level".
+        
+        next_level_prompt_text = small_font.render(f"Press 'N' for Next Level ({current_level})", True, VGA_TEXT_YELLOW)
+        next_level_prompt_rect = next_level_prompt_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
+        screen.blit(next_level_prompt_text, next_level_prompt_rect)
 
     pygame.display.flip()
     clock.tick(30)
