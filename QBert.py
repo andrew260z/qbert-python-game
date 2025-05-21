@@ -65,9 +65,9 @@ STATE_LEVEL_COMPLETE = 3
 STATE_PLAYER_DIED = 4 # Intermediate state after collision/fall
 
 # --- Sound Placeholders ---
-def play_sound(sound_name):
-    """Placeholder function to indicate sound playback."""
-    print(f"SOUND: Playing '{sound_name}'")
+# def play_sound(sound_name):
+    # """Placeholder function to indicate sound playback."""
+    # print(f"SOUND: Playing '{sound_name}'")
     # Add actual sound playing logic here if you have sound files
 
 # --- Helper Functions ---
@@ -115,7 +115,7 @@ class Cube:
         if self.current_color == self.initial_color:
             self.current_color = self.target_color
             self.is_target_color = True
-            play_sound("change_color")
+            # play_sound("change_color")
             return True
         return False
 
@@ -157,7 +157,7 @@ class Player:
         """Attempts to move the player by delta row (dr) and delta column (dc)."""
         if not self.is_active: return False # Don't move if inactive
 
-        play_sound("jump")
+        # play_sound("jump")
         new_row = self.grid_row + dr
         new_col = self.grid_col + dc
 
@@ -165,16 +165,16 @@ class Player:
             self.grid_row = new_row
             self.grid_col = new_col
             if not self.update_screen_pos():
-                play_sound("fall")
+                # play_sound("fall")
                 return False # Fell off (should be handled by caller)
-            play_sound("land")
+            # play_sound("land")
             return True
         else:
             # Player attempted move off edge - this is a fall
             self.grid_row = new_row # Update position to visually fall off
             self.grid_col = new_col
             self.update_screen_pos()
-            play_sound("fall")
+            # play_sound("fall")
             return False # Failed move (fell)
 
     def reset_position(self):
@@ -192,7 +192,7 @@ class Player:
         """Handles player death."""
         self.lives -= 1
         self.is_active = False # Disable input during death pause
-        play_sound("player_die") # Specific sound for player death
+        # play_sound("player_die") # Specific sound for player death
         print(f"Player died! Lives left: {self.lives}")
 
     def draw(self, surface):
@@ -274,7 +274,7 @@ class Enemy:
 
             dr, dc = 0, 0 # Delta row, delta column
             player_row, player_col = player_pos
-            play_sound("enemy_hop") # Snake hops
+            # play_sound("enemy_hop") # Snake hops
 
             # --- Determine Vertical Direction ---
             if player_row > self.grid_row: dr = 1
@@ -371,7 +371,7 @@ def reset_game():
 
 # --- Game Setup ---
 pygame.init()
-pygame.mixer.init()
+# pygame.mixer.init() # ALSA error
 pygame.font.init()
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -431,10 +431,10 @@ while running:
                 moved = False
                 fell = False
 
-                if event.key == pygame.K_q: moved = player.move(-1, -1) # Up-Left
-                elif event.key == pygame.K_w: moved = player.move(-1, 0)  # Up-Right
-                elif event.key == pygame.K_a: moved = player.move(1, 0)   # Down-Left
-                elif event.key == pygame.K_s: moved = player.move(1, 1)   # Down-Right
+                if event.key == pygame.K_LEFT: moved = player.move(-1, -1) # Up-Left
+                elif event.key == pygame.K_UP: moved = player.move(-1, 0)  # Up-Right
+                elif event.key == pygame.K_DOWN: moved = player.move(1, 0)   # Down-Left
+                elif event.key == pygame.K_RIGHT: moved = player.move(1, 1)   # Down-Right
 
                 if player.screen_x < 0: fell = True
 
@@ -452,7 +452,7 @@ while running:
                             if all_cubes_target:
                                 game_state = STATE_LEVEL_COMPLETE
                                 score += 1000
-                                play_sound("level_complete")
+                                # play_sound("level_complete")
                                 coily.is_active = False
                     else:
                         print(f"Error: Moved successfully but landed on invalid index: {current_cube_index}")
@@ -465,7 +465,7 @@ while running:
         if current_time_ticks - player_death_timer > PLAYER_DEATH_PAUSE:
             if player.lives <= 0:
                 game_state = STATE_GAME_OVER
-                play_sound("game_over")
+                # play_sound("game_over")
             else:
                 player.reset_position()
                 coily.reset()
