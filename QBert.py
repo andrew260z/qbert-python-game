@@ -86,14 +86,14 @@ STATE_PLAYER_DIED = 4
 
 # --- Sound System ---
 sound_files = {
-    "jump": "jump.wav",
-    "land": "land.wav",
-    "fall": "fall.wav",
-    "change_color": "change_color.wav",
-    "level_complete": "level_complete.wav",
-    "player_die": "player_die.wav",
-    "enemy_hop": "enemy_hop.wav",
-    "game_over": "game_over.wav"
+    "jump": "jump.mp3",
+    "land": "land.mp3",
+    "fall": "fall.mp3",
+    "change_color": "change_color.mp3",
+    "level_complete": "level_complete.mp3",
+    "player_die": "player_die.mp3",
+    "enemy_hop": "enemy_hop.mp3",
+    "game_over": "game_over.mp3"
 }
 loaded_sounds = {}
 
