@@ -84,11 +84,39 @@ STATE_GAME_OVER = 2
 STATE_LEVEL_COMPLETE = 3
 STATE_PLAYER_DIED = 4
 
-# --- Sound Placeholders ---
+# --- Sound System ---
+sound_files = {
+    "jump": "jump.wav",
+    "land": "land.wav",
+    "fall": "fall.wav",
+    "change_color": "change_color.wav",
+    "level_complete": "level_complete.wav",
+    "player_die": "player_die.wav",
+    "enemy_hop": "enemy_hop.wav",
+    "game_over": "game_over.wav"
+}
+loaded_sounds = {}
+
 def play_sound(sound_name):
-    """Placeholder function to indicate sound playback."""
-    print(f"SOUND: Playing '{sound_name}'")
-    # Add actual sound playing logic here if you have sound files
+    """Plays a sound effect, loading it if necessary."""
+    if sound_name not in sound_files:
+        print(f"Warning: Sound '{sound_name}' not defined.")
+        return
+
+    if sound_name in loaded_sounds:
+        try:
+            loaded_sounds[sound_name].play()
+        except pygame.error as e:
+            print(f"Error playing sound {sound_name}: {e}")
+        return
+
+    file_path = sound_files[sound_name]
+    try:
+        sound = pygame.mixer.Sound(file_path)
+        loaded_sounds[sound_name] = sound
+        sound.play()
+    except pygame.error as e:
+        print(f"Error loading/playing sound {sound_name} from {file_path}: {e}")
 
 # --- Helper Functions ---
 def get_cube_screen_center_pos(grid_row, grid_col):
@@ -485,8 +513,14 @@ def start_next_level():
 
 # --- Game Setup ---
 pygame.init()
-# pygame.mixer.init() # If you add sounds later
+pygame.mixer.init() # If you add sounds later
 pygame.font.init()
+
+try:
+    pygame.mixer.music.load('background_music.mp3')
+    pygame.mixer.music.play(-1)
+except pygame.error as e:
+    print(f"Error loading background music: {e}")
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Q*bert VGA Style")
@@ -642,7 +676,7 @@ while running:
         lc_rect = lc_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))
         screen.blit(lc_text, lc_rect)
         
-        next_level_prompt_text = small_font.render(f"Press 'N' for Next Level ({current_level})", True, VGA_TEXT_YELLOW)
+        next_level_prompt_text = small_font.render(f"Press 'N' for Next Level ({current_level})", True, VGA_ORANGE)
         next_level_prompt_rect = next_level_prompt_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
         screen.blit(next_level_prompt_text, next_level_prompt_rect)
 
