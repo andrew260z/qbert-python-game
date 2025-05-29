@@ -4,6 +4,8 @@ import sys
 import math
 import random # Needed for enemy logic
 import time # Needed for timing enemy movement
+import os 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) # <--- ENSURE THIS LINE IS PRESENT AND CORRECT
 from ball import Ball # Import the Ball class
 from disc import Disc # Import the Disc class
 
@@ -127,20 +129,12 @@ loaded_sounds = {}
 
 def play_sound(sound_name):
     """Plays a sound effect, loading it if necessary."""
-    if sound_name not in sound_files:
-        print(f"Warning: Sound '{sound_name}' not defined.")
-        return
+    # ... (code to check if sound_name in sound_files or loaded_sounds) ...
 
-    if sound_name in loaded_sounds:
-        try:
-            loaded_sounds[sound_name].play()
-        except pygame.error as e:
-            print(f"Error playing sound {sound_name}: {e}")
-        return
-
-    file_path = sound_files[sound_name]
+    file_name = sound_files[sound_name] # Get the base filename
+    file_path = os.path.join(SCRIPT_DIR, file_name) # <--- THIS LINE BUILDS THE CORRECT FULL PATH
     try:
-        sound = pygame.mixer.Sound(file_path)
+        sound = pygame.mixer.Sound(file_path) # Pygame now gets the full, correct path
         loaded_sounds[sound_name] = sound
         sound.play()
     except pygame.error as e:
@@ -603,13 +597,16 @@ def start_next_level():
 
 # --- Game Setup ---
 pygame.init()
-pygame.mixer.init() # If you add sounds later
+pygame.mixer.init() 
 pygame.font.init()
 
 try:
-    pygame.mixer.music.load('background_music.mp3')
+    background_music_filename = 'background_music.mp3' # Define the filename
+    background_music_path = os.path.join(SCRIPT_DIR, background_music_filename) # <--- BUILD FULL PATH
+    pygame.mixer.music.load(background_music_path) # <--- USE FULL PATH
     pygame.mixer.music.play(-1)
 except pygame.error as e:
+    # The error message you see is coming from this print statement
     print(f"Error loading background music: {e}")
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
