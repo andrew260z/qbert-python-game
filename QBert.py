@@ -628,7 +628,18 @@ player = Player(0, 0) # Start player at the top cube (0,0)
 coily = Enemy()
 # Initialize the red ball - start it inactive. Its initial_start_row/col from Ball's __init__
 # will be used if reset() is called without arguments before activation.
-red_ball = Ball(start_row=0, start_col=0, color=BALL_COLOR, radius=BALL_RADIUS, move_interval=BALL_MOVE_INTERVAL)
+# Pass the required functions and configurations to the Ball constructor.
+red_ball = Ball(
+    start_row=0, 
+    start_col=0, 
+    color=BALL_COLOR, 
+    radius=BALL_RADIUS, 
+    move_interval=BALL_MOVE_INTERVAL,
+    get_cube_screen_center_pos_func=get_cube_screen_center_pos,
+    play_sound_func=play_sound,
+    pyramid_rows_config=PYRAMID_ROWS,
+    cubes_per_row_config=CUBES_PER_ROW
+)
 red_ball.is_active = False 
 ball_activation_time = 0 
 
