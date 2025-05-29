@@ -4,6 +4,8 @@ import sys
 import math
 import random # Needed for enemy logic
 import time # Needed for timing enemy movement
+import os 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) 
 from ball import Ball # Import the Ball class
 from disc import Disc # Import the Disc class
 
@@ -69,15 +71,19 @@ BALL_RADIUS = 10
 BALL_MOVE_INTERVAL = 700 # Milliseconds between ball hops
 BALL_SPAWN_DELAY = 2000 # Milliseconds after level/life start for ball to appear
 
-# Disc properties
-DISC_COLOR = VGA_WHITE
-DISC_RADIUS = 25 # Approximate radius for drawing
-DISC_COOLDOWN_DURATION = 5000 # 5 seconds
-# Adjusted X positions to be further from the pyramid
-DISC_LEFT_X = PYRAMID_TOP_X - GRID_COL_SPACING * 3.5 # Further left
-DISC_LEFT_Y = PYRAMID_TOP_Y + GRID_ROW_SPACING * 3    # Aligned around row 3-4
-DISC_RIGHT_X = PYRAMID_TOP_X + GRID_COL_SPACING * 3.5 # Further right
-DISC_RIGHT_Y = PYRAMID_TOP_Y + GRID_ROW_SPACING * 3   # Aligned around row 3-4
+
+# Disc Properties (Example Values - adjust as needed)
+DISC_RADIUS = 20                     # Example: Radius of the discs
+DISC_COLOR = VGA_PURPLE               # Example: Color of the discs (assuming you have VGA_GREEN defined, or pick another)
+DISC_COOLDOWN_DURATION = 5000        # Example: 5000 milliseconds (5 seconds) cooldown
+
+DISC_LEFT_X = 100                    # Example: X-coordinate for the left disc
+DISC_LEFT_Y = SCREEN_HEIGHT // 2     # Example: Y-coordinate for the left disc (e.g., middle of the screen height)
+
+DISC_RIGHT_X = SCREEN_WIDTH - 100    # Example: X-coordinate for the right disc
+DISC_RIGHT_Y = SCREEN_HEIGHT // 2    # Example: Y-coordinate for the right disc
+
+
 
 # Define jump-off points for discs (row, col)
 # These are cubes from which a specific off-grid jump will trigger disc transport
@@ -126,20 +132,12 @@ loaded_sounds = {}
 
 def play_sound(sound_name):
     """Plays a sound effect, loading it if necessary."""
-    if sound_name not in sound_files:
-        print(f"Warning: Sound '{sound_name}' not defined.")
-        return
+    # ... (code to check if sound_name in sound_files or loaded_sounds) ...
 
-    if sound_name in loaded_sounds:
-        try:
-            loaded_sounds[sound_name].play()
-        except pygame.error as e:
-            print(f"Error playing sound {sound_name}: {e}")
-        return
-
-    file_path = sound_files[sound_name]
+    file_name = sound_files[sound_name] # Get the base filename
+    file_path = os.path.join(SCRIPT_DIR, file_name) # <--- THIS LINE BUILDS THE CORRECT FULL PATH
     try:
-        sound = pygame.mixer.Sound(file_path)
+        sound = pygame.mixer.Sound(file_path) # Pygame now gets the full, correct path
         loaded_sounds[sound_name] = sound
         sound.play()
     except pygame.error as e:
@@ -602,10 +600,13 @@ pygame.mixer.init() # If you add sounds later
 pygame.font.init()
 
 try:
-    pygame.mixer.music.load('background_music.mp3')
+    background_music_filename = 'background_music.mp3' # Define the filename
+    background_music_path = os.path.join(SCRIPT_DIR, background_music_filename) # <--- BUILD FULL PATH
+    pygame.mixer.music.load(background_music_path) # <--- USE FULL PATH
     pygame.mixer.music.play(-1)
 except pygame.error as e:
-    print(f"Error loading background music: {e}")
+    # The error message you see is coming from this print statement
+    print(f"Error loading background music: {e}") 
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Q*bert VGA Style")
@@ -644,7 +645,7 @@ ball_activation_time = 0
 
 # Initialize Discs
 left_disc = Disc(DISC_LEFT_X, DISC_LEFT_Y, DISC_RADIUS, DISC_COLOR, DISC_COOLDOWN_DURATION)
-right_disc = Disc(DISC_RIGHT_X, DISC_RIGHT_Y, DISC_RADIUS, DISC_COLOR, DISC_COoldown_DURATION)
+right_disc = Disc(DISC_RIGHT_X, DISC_RIGHT_Y, DISC_RADIUS, DISC_COLOR, DISC_COOLDOWN_DURATION)
 # Activate discs initially (will also be done in reset_game)
 left_disc.activate()
 right_disc.activate()
