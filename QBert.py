@@ -4,8 +4,6 @@ import sys
 import math
 import random # Needed for enemy logic
 import time # Needed for timing enemy movement
-import os 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) 
 from ball import Ball # Import the Ball class
 from disc import Disc # Import the Disc class
 
@@ -71,24 +69,21 @@ BALL_RADIUS = 10
 BALL_MOVE_INTERVAL = 700 # Milliseconds between ball hops
 BALL_SPAWN_DELAY = 2000 # Milliseconds after level/life start for ball to appear
 
-
-# Disc Properties (Example Values - adjust as needed)
-DISC_RADIUS = 20                     # Example: Radius of the discs
-DISC_COLOR = VGA_PURPLE               # Example: Color of the discs (assuming you have VGA_GREEN defined, or pick another)
-DISC_COOLDOWN_DURATION = 5000        # Example: 5000 milliseconds (5 seconds) cooldown
-
-DISC_LEFT_X = 100                    # Example: X-coordinate for the left disc
-DISC_LEFT_Y = SCREEN_HEIGHT // 2     # Example: Y-coordinate for the left disc (e.g., middle of the screen height)
-
-DISC_RIGHT_X = SCREEN_WIDTH - 100    # Example: X-coordinate for the right disc
-DISC_RIGHT_Y = SCREEN_HEIGHT // 2    # Example: Y-coordinate for the right disc
-
-
+# Disc properties
+DISC_COLOR = VGA_WHITE
+DISC_RADIUS = 25 # Approximate radius for drawing
+DISC_COOLDOWN_DURATION = 5000 # 5 seconds
+# Adjusted X positions to be further from the pyramid
+DISC_LEFT_X = PYRAMID_TOP_X - GRID_COL_SPACING * 3.5 # Further left
+DISC_LEFT_Y = PYRAMID_TOP_Y + GRID_ROW_SPACING * 3    # Aligned around row 3-4
+DISC_RIGHT_X = PYRAMID_TOP_X + GRID_COL_SPACING * 3.5 # Further right
+DISC_RIGHT_Y = PYRAMID_TOP_Y + GRID_ROW_SPACING * 3   # Aligned around row 3-4
 
 # Define jump-off points for discs (row, col)
 # These are cubes from which a specific off-grid jump will trigger disc transport
-DISC_JUMP_OFF_POINTS_LEFT = [(2,0), (3,0), (4,0), (5,0)] # Left edge cubes
-DISC_JUMP_OFF_POINTS_RIGHT = [(2,2), (3,3), (4,4), (5,5)]# Right edge cubes (col == row for right edge)
+# Expanded to include all side-edge cubes from row 1 downwards
+DISC_JUMP_OFF_POINTS_LEFT = [(r, 0) for r in range(1, PYRAMID_ROWS)] 
+DISC_JUMP_OFF_POINTS_RIGHT = [(r, r) for r in range(1, PYRAMID_ROWS)]
 
 # Player properties
 PLAYER_WIDTH = 20
@@ -132,12 +127,20 @@ loaded_sounds = {}
 
 def play_sound(sound_name):
     """Plays a sound effect, loading it if necessary."""
-    # ... (code to check if sound_name in sound_files or loaded_sounds) ...
+    if sound_name not in sound_files:
+        print(f"Warning: Sound '{sound_name}' not defined.")
+        return
 
-    file_name = sound_files[sound_name] # Get the base filename
-    file_path = os.path.join(SCRIPT_DIR, file_name) # <--- THIS LINE BUILDS THE CORRECT FULL PATH
+    if sound_name in loaded_sounds:
+        try:
+            loaded_sounds[sound_name].play()
+        except pygame.error as e:
+            print(f"Error playing sound {sound_name}: {e}")
+        return
+
+    file_path = sound_files[sound_name]
     try:
-        sound = pygame.mixer.Sound(file_path) # Pygame now gets the full, correct path
+        sound = pygame.mixer.Sound(file_path)
         loaded_sounds[sound_name] = sound
         sound.play()
     except pygame.error as e:
@@ -243,6 +246,7 @@ class Player:
         self.update_screen_pos()
         self.lives = PLAYER_START_LIVES
         self.is_active = True
+        self.is_visible = True # For teleportation visual cue
 
     def update_screen_pos(self):
         """Updates the player's screen position based on grid position."""
@@ -273,12 +277,12 @@ class Player:
                 return False
             play_sound("land")
             return True
-        else:
-            self.grid_row = new_row # Update position to visually fall off
+        else: # Player attempted to move off-grid
+            self.grid_row = new_row # Update to off-grid position for screen_x check later
             self.grid_col = new_col
-            self.update_screen_pos() # Will set screen_x/y to off-screen
-            play_sound("fall")
-            return False # Failed move (fell)
+            self.update_screen_pos() # This will set screen_x to -100 if off-grid
+            # play_sound("fall") # Fall sound is now handled in the main loop after disc check
+            return False # Failed move (fell or will use disc)
 
     def reset_position(self):
         self.grid_row = self.start_row
@@ -296,6 +300,9 @@ class Player:
         print(f"Player died! Lives left: {self.lives}")
 
     def draw(self, surface):
+        if not self.is_visible:
+            return
+            
         if self.screen_x > 0 and self.is_active:
             # Simple blocky player
             body_rect = pygame.Rect(
@@ -600,13 +607,10 @@ pygame.mixer.init() # If you add sounds later
 pygame.font.init()
 
 try:
-    background_music_filename = 'background_music.mp3' # Define the filename
-    background_music_path = os.path.join(SCRIPT_DIR, background_music_filename) # <--- BUILD FULL PATH
-    pygame.mixer.music.load(background_music_path) # <--- USE FULL PATH
+    pygame.mixer.music.load('background_music.mp3')
     pygame.mixer.music.play(-1)
 except pygame.error as e:
-    # The error message you see is coming from this print statement
-    print(f"Error loading background music: {e}") 
+    print(f"Error loading background music: {e}")
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Q*bert VGA Style")
@@ -645,7 +649,7 @@ ball_activation_time = 0
 
 # Initialize Discs
 left_disc = Disc(DISC_LEFT_X, DISC_LEFT_Y, DISC_RADIUS, DISC_COLOR, DISC_COOLDOWN_DURATION)
-right_disc = Disc(DISC_RIGHT_X, DISC_RIGHT_Y, DISC_RADIUS, DISC_COLOR, DISC_COOLDOWN_DURATION)
+right_disc = Disc(DISC_RIGHT_X, DISC_RIGHT_Y, DISC_RADIUS, DISC_COLOR, DISC_COOLDOWN_DURATION) # Corrected typo
 # Activate discs initially (will also be done in reset_game)
 left_disc.activate()
 right_disc.activate()
@@ -657,6 +661,12 @@ game_state = STATE_PLAYING
 player_death_timer = 0
 PLAYER_DEATH_PAUSE = 1500 # Milliseconds for player death pause
 splash_screen_start_time = 0 # For level complete splash screen
+
+# Player teleportation state
+player_is_teleporting = False
+player_teleport_start_time = 0
+player_teleport_duration = 500 # 0.5 seconds
+player_target_after_teleport = (0,0) # Always teleport to top cube
 
 # Coily disc chase global flags
 qbert_used_disc_coord = None 
@@ -681,6 +691,26 @@ while running:
     # Update disc cooldowns
     if 'left_disc' in globals(): left_disc.update_cooldown()
     if 'right_disc' in globals(): right_disc.update_cooldown()
+
+    # Handle player teleportation visual cue
+    if player_is_teleporting:
+        if current_time_ticks - player_teleport_start_time > player_teleport_duration:
+            player.grid_row = player_target_after_teleport[0]
+            player.grid_col = player_target_after_teleport[1]
+            player.update_screen_pos()
+            player.is_visible = True
+
+            # Land on top cube & change color/score
+            top_cube_index = player.get_current_cube_index()
+            if 0 <= top_cube_index < len(pyramid_cubes):
+                landed_cube = pyramid_cubes[top_cube_index]
+                if landed_cube.change_color(): # True if color actually changed
+                    score += 25
+            play_sound("land") # Play land sound upon reappearing
+
+            player_is_teleporting = False
+            print(f"Player teleported to ({player.grid_row},{player.grid_col}) and is now visible.")
+
 
     # Activate ball if spawn delay has passed and game is playing
     if not red_ball.is_active and game_state == STATE_PLAYING and \
@@ -723,7 +753,7 @@ while running:
                 if event.key == pygame.K_n:
                     start_next_level()
             
-            elif game_state == STATE_PLAYING and player.is_active:
+            elif game_state == STATE_PLAYING and player.is_active and not player_is_teleporting:
                 original_player_row = player.grid_row
                 original_player_col = player.grid_col
                 move_attempt_dr, move_attempt_dc = 0, 0 # Store the delta of the move
@@ -744,8 +774,12 @@ while running:
                     move_attempt_dr, move_attempt_dc = 1, 1
                     moved_successfully = player.move(move_attempt_dr, move_attempt_dc)
 
-                fell_off_pyramid = False
+                fell_off_pyramid = False 
+                used_disc_this_turn = False # Ensure this is reset for each key press event
+                # print(f"[DEBUG] Before 'if not moved_successfully': original_pos=({original_player_row},{original_player_col}), move_attempt=({move_attempt_dr},{move_attempt_dc}), moved_successfully={moved_successfully}")
+
                 if not moved_successfully: # Player attempted to move off-grid or invalid move
+                    # print(f"[DEBUG] Inside 'if not moved_successfully'. Player potentially fell or will use disc. Player pos after move attempt: ({player.grid_row},{player.grid_col}), screen_x: {player.screen_x}")
                     # Check for disc interaction
                     # Player.move already updated player.grid_row/col to off-grid values and set screen_x/y < 0
                     # So we use original_player_row/col for checking jump-off points
@@ -755,79 +789,97 @@ while running:
                                    (move_attempt_dr == 1 and move_attempt_dc == 0)
                     is_right_jump = (move_attempt_dr == -1 and move_attempt_dc == 0) or \
                                     (move_attempt_dr == 1 and move_attempt_dc == 1)
+                    # print(f"[DEBUG] is_left_jump={is_left_jump}, is_right_jump={is_right_jump}")
 
                     # Now, the conditional chain for disc checks
                     if (original_player_row, original_player_col) in DISC_JUMP_OFF_POINTS_LEFT and \
                        is_left_jump and left_disc.is_active:
                         play_sound("disc_ride")
-                        player.grid_row = 0
-                        player.grid_col = 0
-                        player.update_screen_pos() # Teleport player to top
-                        
-                        # Land on top cube & change color/score
-                        top_cube_index = player.get_current_cube_index()
-                        if 0 <= top_cube_index < len(pyramid_cubes):
-                            landed_cube = pyramid_cubes[top_cube_index]
-                            if landed_cube.change_color():
-                                score += 25
+                        player.is_visible = False # Make player invisible
+                        player_is_teleporting = True
+                        player_teleport_start_time = current_time_ticks
                         
                         left_disc.deactivate()
                         used_disc_this_turn = True
-                        play_sound("land") # Play land sound after disc ride
                         
-                        # Set flags for Coily AI
                         qbert_used_disc_coord = (original_player_row, original_player_col)
                         qbert_disc_jump_deltas = (move_attempt_dr, move_attempt_dc)
                         coily_chasing_disc = True
-                        print(f"Q*bert used LEFT disc from ({original_player_row},{original_player_col}). Coily chase ON.")
+                        print(f"Q*bert started teleport via LEFT disc from ({original_player_row},{original_player_col}).")
 
                     elif (original_player_row, original_player_col) in DISC_JUMP_OFF_POINTS_RIGHT and \
                          is_right_jump and right_disc.is_active:
                         play_sound("disc_ride")
-                        player.grid_row = 0
-                        player.grid_col = 0
-                        player.update_screen_pos()
+                        player.is_visible = False # Make player invisible
+                        player_is_teleporting = True
+                        player_teleport_start_time = current_time_ticks
 
-                        top_cube_index = player.get_current_cube_index()
-                        if 0 <= top_cube_index < len(pyramid_cubes):
-                            landed_cube = pyramid_cubes[top_cube_index]
-                            if landed_cube.change_color():
-                                score += 25
-                        
                         right_disc.deactivate()
                         used_disc_this_turn = True
-                        play_sound("land") # Play land sound after disc ride
-
-                        # Set flags for Coily AI
+                        
                         qbert_used_disc_coord = (original_player_row, original_player_col)
                         qbert_disc_jump_deltas = (move_attempt_dr, move_attempt_dc)
                         coily_chasing_disc = True
-                        print(f"Q*bert used RIGHT disc from ({original_player_row},{original_player_col}). Coily chase ON.")
-
+                        print(f"Q*bert started teleport via RIGHT disc from ({original_player_row},{original_player_col}).")
                     
+                    # print(f"[DEBUG] After disc checks: used_disc_this_turn={used_disc_this_turn}, player.screen_x={player.screen_x}")
                     if not used_disc_this_turn and player.screen_x < 0: # Still fell off (no disc used or other invalid move)
-                        # player.move() already played "fall" sound if it was an off-grid move
+                        # print(f"[DEBUG] Player genuinely fell off - no disc used. Player screen_x: {player.screen_x}")
+                        play_sound("fall") # Play "fall" sound only if no disc was used
                         # Reset Coily chase flags if Q*bert just falls without using a disc
                         coily_chasing_disc = False
                         qbert_used_disc_coord = None
                         qbert_disc_jump_deltas = None
                         fell_off_pyramid = True
-
-
-                if fell_off_pyramid: # This is now only true if no disc was used and player fell
-                    player.die() # player.die() also plays "player_die" sound
+                
+                # This 'if fell_off_pyramid' block is now correctly conditional on no disc being used.
+                if fell_off_pyramid: 
+                    player.die() 
                     game_state = STATE_PLAYER_DIED
                     player_death_timer = current_time_ticks
-                    # Reset Coily chase flags as player died
+                    # Reset Coily chase flags as player died (already done above if fall was immediate, but good for clarity)
                     coily_chasing_disc = False
                     qbert_used_disc_coord = None
                     qbert_disc_jump_deltas = None
-                elif moved_successfully: # Player landed on a valid cube on the pyramid
-                    # Reset Coily chase flags as Q*bert made a normal move
-                    coily_chasing_disc = False
-                    qbert_used_disc_coord = None
-                    qbert_disc_jump_deltas = None
+                elif moved_successfully or used_disc_this_turn: # Player landed on a valid cube OR used a disc
+                    if not used_disc_this_turn: # Only reset Coily chase flags if it was a normal move on pyramid
+                        coily_chasing_disc = False
+                        qbert_used_disc_coord = None
+                        qbert_disc_jump_deltas = None
 
+                    # Cube interaction logic (color change, level complete)
+                    # This should only happen if Q*bert is on a cube, i.e. not just after using a disc to teleport (unless teleporting to a cube)
+                    # The disc logic already handles landing on cube (0,0) and changing its color.
+                    # So, if used_disc_this_turn is True, this part for cube color might be redundant or handled.
+                    # If moved_successfully is True (normal jump on pyramid), then this is needed.
+                    if moved_successfully and not used_disc_this_turn: 
+                        current_cube_index = player.get_current_cube_index()
+                        if 0 <= current_cube_index < len(pyramid_cubes):
+                            landed_cube = pyramid_cubes[current_cube_index]
+                            if landed_cube.change_color(): # True if color actually changed
+                                score += 25
+                            
+                            # Check for level complete (only if a normal move completed the level)
+                            all_cubes_target = all(c.is_target_color for c in pyramid_cubes)
+                            if all_cubes_target:
+                                previous_level = current_level 
+                                current_level += 1 
+                                score += 1000 
+                                play_sound("level_complete")
+                                print(f"Level {previous_level} Complete! Advancing to level {current_level}")
+                                game_state = STATE_SPLASH_SCREEN 
+                                splash_screen_start_time = pygame.time.get_ticks()
+                                coily.is_active = False 
+                                if 'red_ball' in globals():
+                                    red_ball.is_active = False 
+                        else: # Should not happen if moved_successfully is true
+                            pass 
+                    # If a disc was used, level completion check is not relevant for that specific "move"
+                    # but the game continues. If Q*bert is on the last cube and then uses a disc,
+                    # level completion should have been triggered by the move *onto* that last cube.
+
+                # The moved_successfully path for cube logic (outside 'if not moved_successfully')
+                elif moved_successfully and not used_disc_this_turn: # Redundant check, already handled by structure, but for clarity
                     current_cube_index = player.get_current_cube_index()
                     if 0 <= current_cube_index < len(pyramid_cubes):
                         landed_cube = pyramid_cubes[current_cube_index]
