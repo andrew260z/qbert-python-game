@@ -45,6 +45,24 @@ COLOR_PLAYER_NOSE_BG = VGA_BLACK # Nose is drawn as a hole
 COLOR_COILY_SNAKE = VGA_PURPLE
 COLOR_COILY_EYES = VGA_WHITE
 
+# Pyramid structure
+PYRAMID_ROWS = 7
+CUBES_PER_ROW = [i + 1 for i in range(PYRAMID_ROWS)]
+TOTAL_CUBES = sum(CUBES_PER_ROW)
+
+# Cube visual properties for drawing
+ISO_CUBE_WIDTH = 80          # Width of the top rhombus face
+ISO_CUBE_TOP_H = 50          # Height of the top rhombus face
+ISO_CUBE_SIDE_V_H = 50       # Vertical height of the side faces
+
+# Cube grid positioning properties
+GRID_COL_SPACING = ISO_CUBE_WIDTH      # Horizontal distance between cube centers in a row
+GRID_ROW_SPACING = ISO_CUBE_TOP_H * 0.75 # Vertical distance between cube centers in adjacent rows (for overlap)
+
+# Pyramid positioning
+PYRAMID_TOP_X = SCREEN_WIDTH // 2
+PYRAMID_TOP_Y = 100 # Y-coordinate for the center of the top-most cube's top face
+
 # Ball properties
 BALL_COLOR = VGA_RED
 BALL_RADIUS = 10
@@ -65,25 +83,6 @@ DISC_RIGHT_Y = PYRAMID_TOP_Y + GRID_ROW_SPACING * 3   # Aligned around row 3-4
 # These are cubes from which a specific off-grid jump will trigger disc transport
 DISC_JUMP_OFF_POINTS_LEFT = [(2,0), (3,0), (4,0), (5,0)] # Left edge cubes
 DISC_JUMP_OFF_POINTS_RIGHT = [(2,2), (3,3), (4,4), (5,5)]# Right edge cubes (col == row for right edge)
-
-
-# Pyramid structure
-PYRAMID_ROWS = 7
-CUBES_PER_ROW = [i + 1 for i in range(PYRAMID_ROWS)]
-TOTAL_CUBES = sum(CUBES_PER_ROW)
-
-# Cube visual properties for drawing
-ISO_CUBE_WIDTH = 80          # Width of the top rhombus face
-ISO_CUBE_TOP_H = 50          # Height of the top rhombus face
-ISO_CUBE_SIDE_V_H = 50       # Vertical height of the side faces
-
-# Cube grid positioning properties
-GRID_COL_SPACING = ISO_CUBE_WIDTH      # Horizontal distance between cube centers in a row
-GRID_ROW_SPACING = ISO_CUBE_TOP_H * 0.75 # Vertical distance between cube centers in adjacent rows (for overlap)
-
-# Pyramid positioning
-PYRAMID_TOP_X = SCREEN_WIDTH // 2
-PYRAMID_TOP_Y = 100 # Y-coordinate for the center of the top-most cube's top face
 
 # Player properties
 PLAYER_WIDTH = 20
