@@ -750,10 +750,13 @@ while running:
                     # Player.move already updated player.grid_row/col to off-grid values and set screen_x/y < 0
                     # So we use original_player_row/col for checking jump-off points
                     
-                    # Left Disc Check:
-                    # Jumped Up-Left (K_LEFT) or Down-Left (K_DOWN) from a left-edge cube
+                    # Calculate jump types first
                     is_left_jump = (move_attempt_dr == -1 and move_attempt_dc == -1) or \
                                    (move_attempt_dr == 1 and move_attempt_dc == 0)
+                    is_right_jump = (move_attempt_dr == -1 and move_attempt_dc == 0) or \
+                                    (move_attempt_dr == 1 and move_attempt_dc == 1)
+
+                    # Now, the conditional chain for disc checks
                     if (original_player_row, original_player_col) in DISC_JUMP_OFF_POINTS_LEFT and \
                        is_left_jump and left_disc.is_active:
                         play_sound("disc_ride")
@@ -778,11 +781,6 @@ while running:
                         coily_chasing_disc = True
                         print(f"Q*bert used LEFT disc from ({original_player_row},{original_player_col}). Coily chase ON.")
 
-
-                    # Right Disc Check:
-                    # Jumped Up-Right (K_UP) or Down-Right (K_RIGHT) from a right-edge cube
-                    is_right_jump = (move_attempt_dr == -1 and move_attempt_dc == 0) or \
-                                    (move_attempt_dr == 1 and move_attempt_dc == 1)
                     elif (original_player_row, original_player_col) in DISC_JUMP_OFF_POINTS_RIGHT and \
                          is_right_jump and right_disc.is_active:
                         play_sound("disc_ride")
